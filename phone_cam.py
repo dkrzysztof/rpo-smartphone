@@ -11,21 +11,26 @@ import urllib
 from matplotlib import pyplot as plt
 import threading
 
-notification_threshold = 10
-last_notification = 0
 
-def notify_user(message):
-    ts = time.time()
-    if(last_notification + notification_threshold < ts):
-        st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-        print("[{}]: Wysyłam email z powiadomieniem o wykryciu {}...".format(st, message))
-        last_notification = ts
+class Notifications:
+    def __init__(self):
+        self.notification_threshold = 5
+        self.last_notification = 0
+
+    def notify_user(self, message):
+        ts = time.time()
+        if(self.last_notification + self.notification_threshold < ts):
+            st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+            print("[{}]: Wysyłam email z powiadomieniem o wykryciu {}...".format(st, message))
+            self.last_notification = ts
+
 
 class MotionDetectorContour:
     def __init__(self,dynamic=False,ceil=50):
         self.ceil = ceil
         self.dynamic = dynamic
-        self.url = "http://192.168.8.107:8080/shot.jpg"
+        self.url = "http://192.168.8.104:8080/shot.jpg"
+        self.notifications = Notifications()
 
     def getFrame(self):
         img_resp = requests.get(self.url, timeout=5)
@@ -70,7 +75,7 @@ class MotionDetectorContour:
                 (x, y, w, h) = cv2.boundingRect(c)
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 text = "Wykryto ruch!"
-                notify_user("ruchu")
+                self.notifications.notify_user("ruchu")
 
             # Tekst i data na ramce
             cv2.putText(frame, "Status: {}".format(text), (10, 20),
@@ -96,7 +101,8 @@ class AudioDetection:
     def __init__(self, chunk_size, silence_limit):
         self.chunk_size = chunk_size
         self.silence_limit = silence_limit
-        self.url = "http://192.168.8.107:8080/audio.wav"
+        self.url = "http://192.168.8.104:8080/audio.wav"
+        self.notifications = Notifications()
 
     def run(self):
         u = urllib.request.urlopen(self.url)
@@ -112,15 +118,13 @@ class AudioDetection:
             data_np = np.asarray(data)
             data_np = np.frombuffer(data_np, dtype=np.int16)
             if np.any(data_np > self.silence_limit):
-                notify_user("dźwięku")
+                self.notifications.notify_user("dźwięku")
 
             # Listen for ESC or ENTER key
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
                 break   
         pass
-
-
 
 
 if __name__=="__main__":
